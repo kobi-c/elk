@@ -1,0 +1,71 @@
+version: '2.2'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.2.0
+    container_name: elasticsearch
+    environment:
+      - "bootstrap.memory_lock=true"
+      - "discovery.type=single-node"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ELASTICSEARCH_USERNAME=elastic"
+      - "ELASTICSEARCH_PASSWORD=changeme"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata01:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - esnet
+  
+  kibana:
+    container_name: kibana
+    environment:
+      - "ELASTICSEARCH_PASSWORD=changeme"
+      - "ELASTICSEARCH_USERNAME=elastic"
+      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+    image: docker.elastic.co/kibana/kibana:7.2.0
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
+    networks:
+      - esnet
+
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:7.2.0
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./logstash/app.conf:/usr/share/logstash/pipeline/app.conf:ro
+    networks:
+      - esnet
+    ports:
+      - "5044:5044"
+      - "9564:9564"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+  
+  server:
+    container_name: server
+    image: node:12.2-alpine
+    restart: always
+    volumes:
+      - ./server:/usr/app
+    networks:
+      - esnet
+    command: ["node", "/usr/app/log.js"]
+
+volumes:
+  esdata01:
+    driver: local
+  esdata02:
+    driver: local
+
+networks:
+  esnet:
